@@ -12,6 +12,8 @@ import time, serial
 
 # auth token & sensor dht11 init pin
 # DHT_SENSOR = adafruit_dht.DHT11(board.D4, use_pulseio=False)
+TTY_PORT = '/dev/ttyACM0'
+BAUDRATE = 115200
 BLYNK_AUTH_TOKEN = 'BLYNK_AUTH_TOKEN'
 
 # Init Blynk
@@ -31,14 +33,17 @@ def blynk_connected():
 
 # function 
 def tempCPU():
-    cpu_usage = psutil.cpu_percent();
-    free_ram = psutil.virtual_memory()[3]/1000000;
-    process = subprocess.Popen(['vcgencmd', 'measure_temp'], stdout=subprocess.PIPE); # bisa pake cat /sys/class/thermal/thermal_zone0/temp
-    output, _error = process.communicate();
-    cpu_tmp = float(output[5:9]);
-    blynk.virtual_write(5, cpu_usage);
-    blynk.virtual_write(6, cpu_tmp);
-    blynk.virtual_write(15, free_ram);
+    try:
+        cpu_usage = psutil.cpu_percent();
+        free_ram = psutil.virtual_memory()[3]/1000000;
+        process = subprocess.Popen(['vcgencmd', 'measure_temp'], stdout=subprocess.PIPE); # bisa pake cat /sys/class/thermal/thermal_zone0/temp
+        output, _error = process.communicate();
+        cpu_tmp = float(output[5:9]);
+        blynk.virtual_write(5, cpu_usage);
+        blynk.virtual_write(6, cpu_tmp);
+        blynk.virtual_write(15, free_ram);
+    except Exception as e:
+        print(f'Error Message: {e}')
 
 def SpeedTest():
     try:
@@ -62,10 +67,10 @@ def sendAt(ser, command):
 
 def executeAt():
     try:
-        ser = serial.Serial('/dev/ttyACM0', 115200, timeout=2); # port serial & baudrate
+        ser = serial.Serial(TTY_PORT, BAUDRATE, timeout=2); # port serial & baudrate
 
-        commands = ['AT+CGPADDR', 'AT+MTSM=1', 'AT+XMCI=1', 'AT+RSRP?', 'AT+XLEC?', 'AT+CSQ', 'AT+COPS=3,0;+COPS?'] # AT command
-        type, ip, temp, rssi, rsrp, sinr, band, operator = None, None, None, None, None, None, None, None
+        commands = ['AT+CGPADDR', 'AT+MTSM=1', 'AT+XMCI=1', 'AT+RSRP?', 'AT+XLEC?', 'AT+CSQ', 'AT+COPS=3,0;+COPS?', 'AT+CREG?'] # AT command
+        type, ip, temp, rssi, rsrp, sinr, band, cellid, operator = None, None, None, None, None, None, None, None, None
 
         checkDevice = sendAt(ser, 'AT+CGMM')
         if "L860" in checkDevice:
@@ -119,12 +124,15 @@ def executeAt():
                             band = f'B{ba[0]} {mhz(int(bw[2]))} + B{ba[1]} {mhz(int(bw[0]))} + B{ba[2]} {mhz(int(bw[0]))} + B{ba[3]} {mhz(int(bw[0]))}'
 
                     if "+COPS:" in response:
-                        operator = response.split(':')[1].split(',')[2]    
+                        operator = response.split(':')[1].split(',')[2]
+                    if "+CREG:" in response:
+                        cellid = response.split(':')[1].split(',')[3] 
                 else:
                     print(f'{command} failed')
 
         # send data to blynk server
         blynk.virtual_write(1, type);
+        blynk.virtual_write(2, cellid);
         blynk.virtual_write(16, ip[0]);
         blynk.virtual_write(8, temp);
         blynk.virtual_write(9, rsrp);

@@ -1,4 +1,6 @@
 #!/bin/sh /etc/rc.common
+# init.d script for owrtblynk.py , put it in /etc/init.d/ and chmod +x
+# start with /etc/init.d/owrtblynk.sh start
 
 START=95
 STOP=01
@@ -16,4 +18,3 @@ stop() {
     pkill -f /usr/bin/owlrtblynk.py
 }
 
-# init.d script for owrtblynk.py , put it in /etc/init.d/ and chmod +x
