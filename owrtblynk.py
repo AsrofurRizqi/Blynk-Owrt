@@ -69,8 +69,9 @@ def executeAt():
     try:
         ser = serial.Serial(TTY_PORT, BAUDRATE, timeout=2); # port serial & baudrate
 
-        commands = ['AT+CGPADDR', 'AT+MTSM=1', 'AT+XMCI=1', 'AT+RSRP?', 'AT+XLEC?', 'AT+CSQ', 'AT+COPS=3,0;+COPS?', 'AT+CREG?'] # AT command
-        type, ip, temp, rssi, rsrp, sinr, band, cellid, operator = None, None, None, None, None, None, None, None, None
+        commandFibo = ['AT+CGPADDR', 'AT+MTSM=1', 'AT+XMCI=1', 'AT+RSRP?', 'AT+XLEC?', 'AT+CSQ', 'AT+COPS=3,0;+COPS?', 'AT+CREG?'] # AT command
+        commandSnap = ['AT^DEBUG?', 'AT^CA_INFO?', 'AT^TEMP?', 'AT+TEMP?']
+        type, ip, temp, rssi, rsrp, sinr, rsrq, band, cellid, operator = None, None, None, None, None, None, None, None, None, None
 
         checkDevice = sendAt(ser, 'AT+CGMM')
         if "L860" in checkDevice:
@@ -85,7 +86,7 @@ def executeAt():
             type = 'Unknown'
 
         if type == 'L860-GL' or type == 'L850-GL':
-            for command in commands:
+            for command in commandFibo:
                 response = sendAt(ser, command)
                 if "OK" in response:
                     if "+CGPADDR: 1," in response:
@@ -129,6 +130,32 @@ def executeAt():
                         cellid = response.split(':')[1].split(',')[3] 
                 else:
                     print(f'{command} failed')
+        
+        elif type == 'DW5821e' or type == 'Telit':
+            for command in commandSnap:
+                response = sendAt(ser, command)
+                if "OK" in response:
+                    if "RAT:LTE" in response:
+                        rsrq = re.search(r"RSRQ: ([\d.-]+)dB", response).group(1)
+                        sinr = re.search(r"RS-SNR: (\d+)dB", response).group(1)
+                        rssi = re.search(r"RSSI: ([\d.-]+)dBm", response).group(1)
+                        rsrp = re.search(r"RSRP: ([\d.-]+)dBm", response).group(1)
+                        ip = re.findall(r'[0-9]+(?:\.[0-9]+){3}', response)
+                        cellid = re.search(r"eNB ID\(PCI\): (\d+-\d+)\(\d+\)", response).group(1)
+                    if "PCC info:" in response:
+                        data = re.findall(r"Band is (\S+), Band_width is (\S+) MHz", response)
+                        band = [f"{bnd} {bw} MHz" for bnd, bw in data].join('+')
+                    if "TSENS:" in response:
+                        temp = re.search(r"TSENS: (\d+)", response).group(1)
+                    if "pa_therm1:" in response:
+                        temp = re.search(r"pa_therm1: (\d+)", response).group(1)
+                    if "tsens_tz_sensor0:" in response:
+                        temp = re.search(r"tsens_tz_sensor0: (\d+)", response).group(1)
+                else:
+                    print(f'{command} failed')
+                    
+        else:
+            print('Unknown Device')
 
         # send data to blynk server
         blynk.virtual_write(1, type);
