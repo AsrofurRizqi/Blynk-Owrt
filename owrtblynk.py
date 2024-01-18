@@ -69,7 +69,7 @@ def executeAt():
     try:
         ser = serial.Serial(TTY_PORT, BAUDRATE, timeout=2); # port serial & baudrate
 
-        commandFibo = ['AT+CGPADDR', 'AT+MTSM=1', 'AT+XMCI=1', 'AT+RSRP?', 'AT+XLEC?', 'AT+CSQ', 'AT+COPS=3,0;+COPS?', 'AT+CREG?'] # AT command
+        commandFibo = ['AT+CGPADDR', 'AT+MTSM=1', 'AT+XMCI=1', 'AT+RSRP?', 'AT+XLEC?', 'AT+CSQ', 'AT+COPS=3,0;+COPS?', 'AT+RSRQ?'] # AT command
         commandSnap = ['AT^DEBUG?', 'AT^CA_INFO?', 'AT^TEMP?', 'AT+TEMP?']
         type, ip, temp, rssi, rsrp, sinr, rsrq, band, cellid, operator = None, None, None, None, None, None, None, None, None, None
 
@@ -96,9 +96,9 @@ def executeAt():
                     if "+RSRP:" in response:
                         rsrp = response.split(':')[1].split(',')[2].split('.')[0]
                     if "+XMCI:" in response:
-                        sinr = round(int(response.split(':')[1].split(',')[12], 16) / 4 + 5)
+                        sinr = response.split(':')[1].split(',')[10]
                     if "+CSQ:" in response:
-                        rssi = re.findall(r'[0-9]+', response)
+                        rssi = (int(response.split(':')[1].split(',')[0]) * 2) - 113
                     if "+XLEC:" in response:
                         def mhz(num):
                             if num == 1:
@@ -128,6 +128,8 @@ def executeAt():
                         operator = response.split(':')[1].split(',')[2]
                     if "+CREG:" in response:
                         cellid = response.split(':')[1].split(',')[3] 
+                    if "+RSRQ:" in response:
+                        rsrq = response.split(':')[1].split(',')[2]
                 else:
                     print(f'{command} failed')
         
@@ -160,13 +162,14 @@ def executeAt():
         # send data to blynk server
         blynk.virtual_write(1, type);
         blynk.virtual_write(2, cellid);
-        blynk.virtual_write(16, ip[0]);
+        blynk.virtual_write(7, sinr);
         blynk.virtual_write(8, temp);
         blynk.virtual_write(9, rsrp);
-        blynk.virtual_write(10, '-' + rssi[0]);
-        blynk.virtual_write(7, sinr);
+        blynk.virtual_write(10, rssi);
+        blynk.virtual_write(11, operator);
         blynk.virtual_write(12, band);
-        blynk.virtual_write(11, 'Live On'); # bisa pake variabel operator / manual
+        blynk.virtual_write(16, ip[0]);
+        blynk.virtual_write(17, rsrq);
     
         # close serial connection
         ser.close()
