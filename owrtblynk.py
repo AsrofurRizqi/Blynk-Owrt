@@ -1,17 +1,12 @@
 from __future__ import division
 import BlynkLib as blynk
-import RPi.GPIO as GPIO
 from BlynkTimer import BlynkTimer
 
 import subprocess
 import psutil
 import re
-# import adafruit_dht
 import time, serial
-# import board
 
-# auth token & sensor dht11 init pin
-# DHT_SENSOR = adafruit_dht.DHT11(board.D4, use_pulseio=False)
 TTY_PORT = '/dev/ttyACM0'
 BAUDRATE = 115200
 BLYNK_AUTH_TOKEN = 'BLYNK_AUTH_TOKEN'
